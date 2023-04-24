@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Wire</string>
+    <string name="title_activity_item_detail_host">Wire List Activity</string>
+    <string name="title_item_list">Wire Items</string>
+    <string name="title_item_detail">Wire Item Detail</string>
+</resources>
