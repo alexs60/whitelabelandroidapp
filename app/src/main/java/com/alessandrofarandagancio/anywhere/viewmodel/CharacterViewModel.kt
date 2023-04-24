@@ -26,8 +26,8 @@ class CharacterViewModel @Inject constructor(private val characterRepository: Ch
             map
         }
 
-    fun getCharacterById(id: String): UICharacter {
-        return characterMap.getOrDefault(id, emptyUICharacter())
+    fun getCharacterById(id: String): UICharacter? {
+        return characterMap[id]
     }
 
     fun refreshCharacter() {

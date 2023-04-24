@@ -72,7 +72,7 @@ class CharacterDetailFragment : Fragment() {
         character?.let {
             if (it.icon.isNotEmpty()) {
                 characterImageView.load(it.icon)
-            } else {
+            } else{
                 characterImageView.load("https://i.imgflip.com/7jcrbx.jpg")
             }
             characterNameTextView.text = it.name
