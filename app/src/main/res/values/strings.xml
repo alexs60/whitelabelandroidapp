@@ -3,5 +3,6 @@
     <string name="title_activity_item_detail_host">Character Activity</string>
     <string name="title_item_list">Items</string>
     <string name="title_item_detail">Item Detail</string>
+    <string name="action_search">Search</string>
 
 </resources>

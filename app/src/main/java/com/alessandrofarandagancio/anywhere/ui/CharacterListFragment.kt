@@ -1,15 +1,15 @@
 package com.alessandrofarandagancio.anywhere.ui
 
-import android.content.ClipData
-import android.content.ClipDescription
-import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Filter
+import android.widget.Filterable
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.widget.SearchView
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -45,16 +45,12 @@ class CharacterListFragment : Fragment() {
         ViewCompat.OnUnhandledKeyEventListenerCompat { v, event ->
             if (event.keyCode == KeyEvent.KEYCODE_Z && event.isCtrlPressed) {
                 Toast.makeText(
-                    v.context,
-                    "Undo (Ctrl + Z) shortcut triggered",
-                    Toast.LENGTH_LONG
+                    v.context, "Undo (Ctrl + Z) shortcut triggered", Toast.LENGTH_LONG
                 ).show()
                 true
             } else if (event.keyCode == KeyEvent.KEYCODE_F && event.isCtrlPressed) {
                 Toast.makeText(
-                    v.context,
-                    "Find (Ctrl + F) shortcut triggered",
-                    Toast.LENGTH_LONG
+                    v.context, "Find (Ctrl + F) shortcut triggered", Toast.LENGTH_LONG
                 ).show()
                 true
             }
@@ -65,13 +61,14 @@ class CharacterListFragment : Fragment() {
 
     private val characterViewModel: CharacterViewModel by activityViewModels()
 
+    private lateinit var searchView: SearchView
+
     // This property is only valid between onCreateView and
     // onDestroyView.
     private val binding get() = _binding!!
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
 
         _binding = FragmentItemListBinding.inflate(inflater, container, false)
@@ -86,6 +83,8 @@ class CharacterListFragment : Fragment() {
         ViewCompat.addOnUnhandledKeyEventListener(view, unhandledKeyEventListenerCompat)
 
         val recyclerView: RecyclerView = binding.itemList
+        searchView = binding.searchView
+
 
         // Leaving this not using view binding as it relies on if the view is visible the current
         // layout configuration (layout, layout-sw600dp)
@@ -95,38 +94,33 @@ class CharacterListFragment : Fragment() {
     }
 
     private fun setupRecyclerView(
-        recyclerView: RecyclerView,
-        itemDetailFragmentContainer: View?
+        recyclerView: RecyclerView, itemDetailFragmentContainer: View?
     ) {
         characterViewModel.characterListResponse.observe(viewLifecycleOwner, Observer {
-            recyclerView.adapter = SimpleItemRecyclerViewAdapter(
+            var adapter = SimpleItemRecyclerViewAdapter(
                 it, itemDetailFragmentContainer
             )
+            recyclerView.adapter = adapter
+            searchView.setOnQueryTextListener(OnTextChangedListener(adapter))
         })
-
-
     }
 
     class SimpleItemRecyclerViewAdapter(
-        private val values: List<UICharacter>,
-        private val itemDetailFragmentContainer: View?
-    ) :
-        RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
+        private val characters: List<UICharacter>, private val itemDetailFragmentContainer: View?
+    ) : RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>(), Filterable {
+
+        private var charactersFiltered: List<UICharacter> = characters
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
 
-            val binding =
-                CharacterListContentBinding.inflate(
-                    LayoutInflater.from(parent.context),
-                    parent,
-                    false
-                )
+            val binding = CharacterListContentBinding.inflate(
+                LayoutInflater.from(parent.context), parent, false
+            )
             return ViewHolder(binding)
-
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = values[position]
+            val item = charactersFiltered[position]
             holder.contentView.text = item.name
 
             with(holder.itemView) {
@@ -135,8 +129,7 @@ class CharacterListFragment : Fragment() {
                     val item = itemView.tag as UICharacter
                     val bundle = Bundle()
                     bundle.putString(
-                        CharacterDetailFragment.ARG_ITEM_ID,
-                        item.id
+                        CharacterDetailFragment.ARG_ITEM_ID, item.id
                     )
                     if (itemDetailFragmentContainer != null) {
                         itemDetailFragmentContainer.findNavController()
@@ -145,57 +138,38 @@ class CharacterListFragment : Fragment() {
                         itemView.findNavController().navigate(R.id.show_item_detail, bundle)
                     }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    /**
-                     * Context click listener to handle Right click events
-                     * from mice and trackpad input to provide a more native
-                     * experience on larger screen devices
-                     */
-                    setOnContextClickListener { v ->
-                        val item = v.tag as UICharacter
-                        Toast.makeText(
-                            v.context,
-                            "Context click of item " + item.id,
-                            Toast.LENGTH_LONG
-                        ).show()
-                        true
-                    }
-                }
-
-                setOnLongClickListener { v ->
-                    // Setting the item id as the clip data so that the drop target is able to
-                    // identify the id of the content
-                    val clipItem = ClipData.Item(item.id)
-                    val dragData = ClipData(
-                        v.tag as? CharSequence,
-                        arrayOf(ClipDescription.MIMETYPE_TEXT_PLAIN),
-                        clipItem
-                    )
-
-                    if (Build.VERSION.SDK_INT >= 24) {
-                        v.startDragAndDrop(
-                            dragData,
-                            View.DragShadowBuilder(v),
-                            null,
-                            0
-                        )
-                    } else {
-                        v.startDrag(
-                            dragData,
-                            View.DragShadowBuilder(v),
-                            null,
-                            0
-                        )
-                    }
-                }
             }
         }
 
-        override fun getItemCount() = values.size
+        override fun getItemCount() = charactersFiltered.size
 
         inner class ViewHolder(binding: CharacterListContentBinding) :
             RecyclerView.ViewHolder(binding.root) {
             val contentView: TextView = binding.content
+        }
+
+        override fun getFilter(): Filter {
+            return object : Filter() {
+                override fun performFiltering(constraint: CharSequence): FilterResults {
+                    charactersFiltered = if (constraint.isEmpty()) characters else {
+                        val filteredList = mutableListOf<UICharacter>()
+                        characters.filter {
+                            (it.id.contains(constraint, true)) or (it.text.contains(constraint, true))
+                        }.forEach { filteredList.add(it) }
+                        filteredList
+                    }
+                    return FilterResults().apply { values = charactersFiltered }
+                }
+
+                override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                    charactersFiltered = if (results?.values == null) {
+                        emptyList()
+                    } else {
+                        results.values as ArrayList<UICharacter>
+                    }
+                    notifyDataSetChanged()
+                }
+            }
         }
 
     }
@@ -204,4 +178,20 @@ class CharacterListFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
+
+    class OnTextChangedListener(private val adapter: SimpleItemRecyclerViewAdapter) :
+        SearchView.OnQueryTextListener {
+        override fun onQueryTextSubmit(query: String?): Boolean {
+            adapter.filter.filter(query)
+            return false
+        }
+
+        override fun onQueryTextChange(newText: String?): Boolean {
+            adapter.filter.filter(newText)
+            return false
+        }
+
+    }
 }
+
+

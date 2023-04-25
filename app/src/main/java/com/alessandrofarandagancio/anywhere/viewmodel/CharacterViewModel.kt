@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.map
 import androidx.lifecycle.viewModelScope
+import androidx.recyclerview.widget.SortedList
 import com.alessandrofarandagancio.anywhere.repository.CharacterRepository
 import com.alessandrofarandagancio.anywhere.ui.model.UICharacter
 import com.alessandrofarandagancio.anywhere.ui.model.asViewModel
